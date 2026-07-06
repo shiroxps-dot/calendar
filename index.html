@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FEF3E2">
+  <title>สมุดแพลนเรียน</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Mali:wght@400;600;700&family=Sarabun:wght@300;400;500;600&display=swap');
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --paper:#FEF3E2; --paper-dark:#F5DFB8;
+      --accent:#B85C00; --accent-light:#D4700A;
+      --ink:#2A1A08; --ink-muted:#7A5230;
+      --tab-bg:#FFF8EE; --shadow:rgba(90,45,10,.14);
+      --font-title:'Mali','Segoe Script',cursive;
+      --font-body:'Sarabun','Tahoma',sans-serif;
+      --font-mono:'JetBrains Mono','Consolas',monospace;
+      --p1:#F4A35A; --p2:#A8D8EA; --p3:#B5EAD7;
+      --p4:#FFF5BA; --p5:#D4B5FF; --p6:#FFD4A8;
+      --nm:56px; --r:8px;
+    }
+    html { font-size:16px; scroll-behavior:smooth; }
+    body {
+      font-family:var(--font-body);
+      background:#7A3E10;
+      background-image:radial-gradient(ellipse at 20% 50%,rgba(180,90,20,.35) 0%,transparent 50%),
+                       radial-gradient(ellipse at 80% 20%,rgba(120,60,10,.25) 0%,transparent 40%);
+      min-height:100vh; color:var(--ink);
+      padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right))
+              max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+    }
+    /* ── Notebook ── */
+    .notebook { max-width:1200px; margin:0 auto; }
+    .notebook-cover {
+      background:var(--paper);
+      border-radius:4px 12px 12px 4px;
+      box-shadow:4px 4px 0 rgba(0,0,0,.08),8px 8px 24px rgba(0,0,0,.2);
+      position:relative;
+      overflow:hidden;
+      min-height:calc(100vh - 28px);
+      /* เว้นพื้นที่ซ้ายให้ punch-holes zone */
+      padding-left: var(--nm);
+    }
+    /* punch-hole zone */
+    .punch-holes {
+      position:absolute; left:0; top:0; bottom:0;
+      width:var(--nm);
+      background:var(--paper-dark);
+      border-right:2px solid var(--accent);
+      z-index:4; pointer-events:none;
+      display:flex; flex-direction:column;
+      justify-content:space-around; align-items:center;
+      padding:24px 0;
+    }
+    .punch-hole {
+      width:16px; height:16px; border-radius:50%;
+      background:#7A3E10;
+      box-shadow:inset 0 2px 4px rgba(0,0,0,.5);
+      flex-shrink:0;
+    }
+    /* เส้นแดงซ้ายสุด */
+    .notebook-cover::after {
+      content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+      background:var(--accent); z-index:5;
+    }
+    /* ── Header ── */
+    .header { padding:18px 20px 0 20px; position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .header-left { min-width:0; }
+    .header-title { font-family:var(--font-title); font-size:clamp(1.3rem,3.5vw,1.8rem); font-weight:700; color:var(--accent); display:flex; align-items:center; gap:8px; }
+    .header-sub { font-size:.83rem; color:var(--ink-muted); margin-top:2px; }
+    .lock-btn { padding:7px 14px; border-radius:20px; border:1.5px solid #C8976A; background:var(--paper-dark); color:var(--ink-muted); font-family:var(--font-body); font-size:.8rem; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .lock-btn:hover { background:#E8C080; border-color:var(--accent); }
+    .lock-btn.locked { background:var(--accent); color:#fff; border-color:var(--accent); }
+    /* ── Tabs ── */
+    .tabs { display:flex; gap:4px; padding:14px 20px 0 18px; position:relative; z-index:5; overflow-x:auto; }
+    .tab { font-family:var(--font-title); font-size:.88rem; font-weight:600; padding:8px 16px 10px; border:none; cursor:pointer; background:var(--paper-dark); color:var(--ink-muted); border-radius:8px 8px 0 0; transition:background .2s,color .2s,transform .15s; display:flex; align-items:center; gap:5px; white-space:nowrap; }
+    .tab:hover { background:#EDD4A0; color:var(--ink); }
+    .tab.active { background:var(--tab-bg); color:var(--accent); transform:translateY(2px); }
+    .tab svg { width:16px; height:16px; }
+    /* ── Content ── */
+    .content { padding:16px 20px 40px calc(var(--nm)+22px); background:var(--tab-bg); min-height:600px; position:relative; border-top:2px dashed var(--paper-dark); overflow:hidden; }
+    .content::before { content:''; position:absolute; top:0; left:0; right:0; height:100%; background:repeating-linear-gradient(transparent,transparent 27px,rgba(180,110,40,.14) 27px,rgba(180,110,40,.14) 28px); pointer-events:none; z-index:0; }
+    .panel { position:relative; z-index:1; }
+    .panel[hidden] { display:none !important; }
+    /* ── Buttons ── */
+    .btn { font-family:var(--font-body); font-size:.875rem; font-weight:500; padding:7px 15px; border:1.5px solid var(--ink-muted); border-radius:var(--r); background:var(--paper); color:var(--ink); cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:5px; }
+    .btn:hover { background:var(--paper-dark); }
+    .btn:active { transform:scale(.97); }
+    .btn-primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .btn-primary:hover { background:#8C4200; border-color:#8C4200; }
+    .btn-sm { padding:5px 10px; font-size:.78rem; }
+    .btn-danger { background:transparent; color:var(--accent); border-color:var(--accent-light); padding:4px 8px; font-size:.75rem; }
+    .btn-danger:hover { background:rgba(184,92,0,.1); }
+    .btn-icon { padding:5px; border:none; background:transparent; cursor:pointer; color:var(--ink-muted); border-radius:4px; display:inline-flex; align-items:center; justify-content:center; }
+    .btn-icon:hover { background:var(--paper-dark); color:var(--ink); }
+    @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(184,92,0,.35)} 70%{box-shadow:0 0 0 10px rgba(184,92,0,0)} 100%{box-shadow:0 0 0 0 rgba(184,92,0,0)} }
+    .btn-pulse { animation:pulse-ring 1.8s ease-out infinite; }
+    /* ── Forms ── */
+    .form-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:9px; margin-bottom:9px; }
+    .form-group { display:flex; flex-direction:column; gap:3px; }
+    .form-group.full { grid-column:1/-1; }
+    label { font-size:.76rem; font-weight:500; color:var(--ink-muted); }
+    input,select,textarea { font-family:var(--font-body); font-size:.88rem; padding:7px 9px; border:1.5px solid #C8976A; border-radius:var(--r); background:#FFF8EE; color:var(--ink); outline:none; transition:border-color .15s; }
+    input:focus,select:focus,textarea:focus { border-color:var(--accent); }
+    input[type="time"] { font-family:var(--font-mono); font-size:.82rem; }
+    .color-picker { display:flex; gap:7px; flex-wrap:wrap; }
+    .color-swatch { width:28px; height:28px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:transform .15s; }
+    .color-swatch:hover { transform:scale(1.15); }
+    .color-swatch.selected { border-color:var(--ink); box-shadow:0 0 0 2px var(--paper); }
+    /* ── Schedule layout ── */
+    .sch-layout { display:flex; flex-direction:column; gap:14px; }
+    /* ── Subject Palette (top) ── */
+    .subj-palette { background:rgba(245,210,150,.3); border:1.5px solid #C8976A; border-radius:var(--r); padding:12px; }
+    .subj-palette.is-locked .subj-chip { pointer-events:none; opacity:.8; }
+    .subj-palette.is-locked .subj-chip-actions,.subj-palette.is-locked .btn-sm { pointer-events:none; opacity:.5; }
+    .subj-palette-title { font-family:var(--font-title); font-weight:600; font-size:.88rem; color:var(--ink); margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap; }
+    .subj-list { display:flex; flex-direction:row; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+    .subj-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:20px; cursor:grab; user-select:none; box-shadow:1px 2px 5px var(--shadow); transition:transform .12s; white-space:nowrap; max-width:220px; }
+    .subj-chip:active { cursor:grabbing; }
+    .subj-chip.dragging { opacity:.4; }
+    .subj-chip-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(0,0,0,.15); }
+    .subj-chip-body { flex:1; min-width:0; }
+    .subj-chip-name { font-family:var(--font-title); font-weight:700; font-size:.82rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .subj-chip-code { font-size:.66rem; color:var(--ink-muted); }
+    .subj-chip-actions { display:flex; gap:2px; flex-shrink:0; opacity:0; transition:opacity .12s; }
+    .subj-chip:hover .subj-chip-actions { opacity:1; }
+    .subj-palette-empty { font-size:.78rem; color:var(--ink-muted); padding:4px 0; opacity:.7; }
+    .drag-hint { font-size:.72rem; color:var(--ink-muted); padding:6px 8px; border:1.5px dashed #C8976A; border-radius:var(--r); display:inline-block; margin-top:2px; }
+    .subj-add-form { background:#FFF8EE; border:1.5px dashed #C8976A; border-radius:var(--r); padding:12px; margin-bottom:10px; }
+    .subj-add-title { font-family:var(--font-title); font-size:.85rem; font-weight:600; margin-bottom:9px; color:var(--ink); }
+    /* ── Time Grid ── */
+    .tg-area { display:flex; flex-direction:column; gap:10px; }
+    .tg-area.is-locked .tg-slot,.tg-area.is-locked .tg-block { pointer-events:none; }
+    .tg-area.is-locked .tg-block-del { display:none; }
+    .tg-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:2px solid #C8976A; border-radius:var(--r); background:#FEF3E2; width:100%; }
+    .tg-table { border-collapse:collapse; width:100%; min-width:max-content; table-layout:auto; }
+    /* Horizontal layout: rows=days, cols=time slots */
+    .tg-corner { width:68px; min-width:68px; background:var(--accent); position:sticky; left:0; z-index:3; border-right:2px solid rgba(255,255,255,.3); border-bottom:2px solid rgba(255,255,255,.2); }
+    .tg-time-hdr {
+      font-family:var(--font-mono); font-size:.7rem; color:rgba(255,255,255,.9); font-weight:600;
+      text-align:center; padding:6px 2px; background:var(--accent);
+      border-right:1px solid rgba(255,255,255,.2); border-bottom:2px solid rgba(255,255,255,.2);
+      white-space:nowrap; user-select:none;
+    }
+    .tg-time-hdr.tg-hour { color:#fff; font-weight:800; }
+    .tg-day-lbl {
+      font-family:var(--font-title); font-weight:700; font-size:.9rem; text-align:center;
+      padding:0 8px; background:var(--paper-dark); color:var(--accent);
+      position:sticky; left:0; z-index:2;
+      border-right:2px solid #C8976A; border-bottom:1px solid #DDB882;
+      white-space:nowrap; width:68px; min-width:68px;
+      vertical-align:middle;
+    }
+    .tg-slot {
+      border-right:1px dashed rgba(200,151,106,.4); border-bottom:1px solid #DDB882;
+      position:relative; transition:background .1s; height:72px;
+      min-width:32px;
+    }
+    .tg-slot.tg-hour-start { border-left:1.5px solid #C8976A; }
+    .tg-slot.drag-over { background:rgba(184,92,0,.15); }
+    .tg-slot-inner { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; font-size:.62rem; color:var(--accent); pointer-events:none; }
+    .tg-slot:hover .tg-slot-inner { opacity:.7; }
+    /* placed subject block — horizontal spans cols */
+    .tg-block {
+      position:absolute; top:3px; bottom:3px; left:3px;
+      border-radius:6px; padding:5px 22px 5px 8px;
+      box-shadow:0 2px 6px rgba(0,0,0,.18);
+      cursor:grab; z-index:4; overflow:hidden;
+      transition:filter .12s,transform .12s;
+      border-top:4px solid rgba(0,0,0,.18);
+      display:flex; flex-direction:column; justify-content:center;
+    }
+    .tg-block:active { cursor:grabbing; }
+    .tg-block:hover { filter:brightness(.92); transform:scale(1.01); z-index:5; }
+    .tg-block.dragging { opacity:.35; }
+    .tg-block-name { font-family:var(--font-title); font-weight:700; font-size:.88rem; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:rgba(0,0,0,.8); }
+    .tg-block-time { font-family:var(--font-mono); font-size:.72rem; color:rgba(0,0,0,.55); margin-top:1px; white-space:nowrap; }
+    .tg-block-room { font-size:.7rem; color:rgba(0,0,0,.48); white-space:nowrap; }
+    .tg-block-del { position:absolute; top:4px; right:4px; width:17px; height:17px; border-radius:4px; border:none; background:rgba(0,0,0,.12); color:rgba(0,0,0,.5); cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .12s; padding:0; }
+    .tg-block:hover .tg-block-del { opacity:1; }
+    .tg-block-del:hover { background:rgba(180,40,0,.4); color:#fff; }
+    .tg-block-merged { border-top-width:5px; }
+    .tg-merged-badge { display:inline-block; font-size:.58rem; padding:1px 4px; background:rgba(0,0,0,.15); border-radius:6px; margin-left:3px; vertical-align:middle; }
+    .tg-hint { font-size:.7rem; color:var(--ink-muted); opacity:.65; margin-top:5px; }
+    /* ── Delete zone ── */
+    .drop-delete-zone { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; padding:20px 16px; border:3px dashed #C8976A; border-radius:12px; background:rgba(245,215,170,.2); color:var(--ink-muted); font-size:.95rem; font-family:var(--font-title); font-weight:600; cursor:default; transition:all .15s; user-select:none; min-height:70px; }
+    .drop-delete-zone.drag-over-delete { background:rgba(184,50,0,.12); border-color:var(--accent); color:var(--accent); transform:scale(1.01); }
+    .drop-delete-icon { font-size:1.8rem; transition:transform .15s; }
+    .drop-delete-zone.drag-over-delete .drop-delete-icon { transform:scale(1.3) rotate(-10deg); }
+    /* ── Locked bar ── */
+    .locked-bar { display:flex; align-items:center; gap:8px; background:rgba(184,92,0,.1); border:1.5px dashed var(--accent); border-radius:var(--r); padding:7px 14px; margin-bottom:12px; font-size:.82rem; color:var(--accent); font-weight:500; }
+    /* ── Summary ── */
+    .summary-section { margin-top:22px; border-top:2px dashed #C8976A; padding-top:16px; position:relative; z-index:1; }
+    .summary-title { font-family:var(--font-title); font-weight:700; font-size:1rem; color:var(--accent); margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+    .summary-title svg { width:16px; height:16px; flex-shrink:0; }
+    .summary-stats { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+    .stat-chip { background:var(--paper-dark); border-radius:20px; padding:5px 14px; font-size:.82rem; color:var(--ink-muted); display:flex; align-items:center; gap:5px; }
+    .stat-chip svg { width:13px; height:13px; flex-shrink:0; }
+    .stat-chip strong { color:var(--ink); }
+    .summary-table-wrap { overflow-x:auto; }
+    .summary-table { width:100%; border-collapse:collapse; font-size:.82rem; min-width:420px; }
+    .summary-table th { background:var(--paper-dark); padding:8px 10px; text-align:left; font-family:var(--font-title); font-size:.78rem; font-weight:600; color:var(--ink-muted); border-bottom:2px solid #C8976A; white-space:nowrap; }
+    .summary-table td { padding:8px 10px; border-bottom:1px solid #DDB882; vertical-align:middle; }
+    .summary-table tr:hover td { background:rgba(210,150,80,.15); }
+    .sum-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; vertical-align:middle; }
+    .sum-badge { display:inline-block; font-size:.74rem; padding:2px 8px; border-radius:10px; background:var(--paper-dark); color:var(--ink); font-family:var(--font-title); margin:2px; white-space:nowrap; }
+    /* ── Calendar ── */
+    .calendar-layout { display:grid; grid-template-columns:1fr 260px; gap:18px; }
+    .calendar-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .calendar-title { font-family:var(--font-title); font-weight:700; font-size:1.15rem; color:var(--accent); }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; background:#C8976A; border-radius:var(--r); overflow:hidden; }
+    .cal-dow { background:var(--paper-dark); text-align:center; font-size:.72rem; font-weight:600; padding:7px 2px; color:var(--ink-muted); }
+    .cal-dow.weekend { color:var(--accent-light); }
+    .cal-day { background:#FEF3E2; min-height:58px; padding:4px; cursor:pointer; transition:background .15s; display:flex; flex-direction:column; }
+    .cal-day:hover { background:var(--paper-dark); }
+    .cal-day.other-month { background:rgba(210,165,100,.3); opacity:.5; }
+    .cal-day.today { background:rgba(247,210,130,.55); }
+    .cal-day.today .cal-day-num { background:var(--accent); color:#fff; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+    .cal-day.selected { outline:2px solid var(--accent); outline-offset:-2px; z-index:1; }
+    .cal-day-num { font-family:var(--font-mono); font-size:.78rem; font-weight:600; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+    .cal-dots { display:flex; gap:3px; flex-wrap:wrap; margin-top:auto; }
+    .cal-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .cal-empty-hint { text-align:center; padding:14px 10px; color:var(--ink-muted); font-size:.8rem; line-height:1.6; border:1.5px dashed #C8976A; border-radius:var(--r); margin-top:8px; }
+    .upcoming { background:rgba(245,210,150,.3); border:1.5px dashed #C8976A; border-radius:var(--r); padding:13px; }
+    .upcoming-title { font-family:var(--font-title); font-weight:600; font-size:.95rem; color:var(--accent); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .upcoming-list { display:flex; flex-direction:column; gap:7px; max-height:360px; overflow-y:auto; }
+    .upcoming-item { padding:7px 10px; background:#FFF8EE; border-radius:var(--r); border-left:3px solid; font-size:.8rem; }
+    .upcoming-item-name { font-weight:500; }
+    .upcoming-item-date { font-family:var(--font-mono); font-size:.7rem; color:var(--ink-muted); margin-top:2px; }
+    .upcoming-empty { font-size:.78rem; color:var(--ink-muted); text-align:center; padding:18px 0; opacity:.6; }
+    .legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; font-size:.7rem; color:var(--ink-muted); }
+    .legend-item { display:flex; align-items:center; gap:4px; }
+    .legend-dot { width:7px; height:7px; border-radius:50%; }
+    /* ── Modal ── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(44,36,22,.4); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px; animation:fadeIn .2s; }
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    .modal { background:var(--paper); border-radius:10px; padding:22px; width:100%; max-width:460px; max-height:90vh; overflow-y:auto; box-shadow:8px 8px 32px rgba(0,0,0,.25); animation:slideUp .22s; }
+    @keyframes slideUp{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .modal-title { font-family:var(--font-title); font-weight:700; font-size:1.1rem; color:var(--accent); margin-bottom:14px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap; }
+    .event-list-modal { margin-bottom:11px; }
+    .event-item-row { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; background:#FFF8EE; border-radius:var(--r); margin-bottom:5px; border-left:3px solid; cursor:pointer; transition:background .15s; }
+    .event-item-row:hover { background:var(--paper-dark); }
+    .event-item-info { flex:1; }
+    .event-item-name { font-weight:500; font-size:.86rem; }
+    .type-badge { display:inline-block; font-size:.68rem; padding:1px 6px; border-radius:10px; color:#fff; margin-left:4px; }
+    .add-form { background:rgba(255,248,238,.9); border:1.5px dashed #C8976A; border-radius:var(--r); padding:13px; margin-bottom:13px; }
+    .add-form-title { font-family:var(--font-title); font-weight:600; font-size:.9rem; margin-bottom:9px; color:var(--ink); }
+    /* ── Backup ── */
+    .backup-panel { max-width:520px; }
+    .backup-panel p { font-size:.86rem; color:var(--ink-muted); line-height:1.6; margin-bottom:13px; }
+    .backup-actions { display:flex; flex-direction:column; gap:11px; }
+    .backup-card { padding:14px; background:rgba(255,248,238,.9); border:1.5px dashed #C8976A; border-radius:var(--r); }
+    .backup-card-title { font-family:var(--font-title); font-weight:600; font-size:.9rem; margin-bottom:5px; }
+    .backup-card-desc { font-size:.78rem; color:var(--ink-muted); margin-bottom:10px; line-height:1.5; }
+    .hidden-input { display:none; }
+    /* ── Responsive ── */
+    @media(max-width:900px) {
+      :root { --nm:36px; }
+      .sch-layout { grid-template-columns:1fr; }
+      .subj-palette { position:static; }
+      .subj-list { max-height:none; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
+      .calendar-layout { grid-template-columns:1fr; }
+      .tabs { flex-wrap:nowrap; }
+    }
+    @media(max-width:480px) {
+      body { padding:8px; }
+      .form-row { grid-template-columns:1fr; }
+      .cal-day { min-height:44px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+  (function(){
+    'use strict';
+    /* ── Constants ── */
+    const PASTEL_COLORS=[
+      {id:'pastel-1',hex:'#F4A35A',label:'ส้มชาไทย'},{id:'pastel-2',hex:'#A8D8EA',label:'ฟ้า'},
+      {id:'pastel-3',hex:'#B5EAD7',label:'เขียว'},{id:'pastel-4',hex:'#FFF5BA',label:'เหลือง'},
+      {id:'pastel-5',hex:'#D4B5FF',label:'ม่วง'},{id:'pastel-6',hex:'#FFD4A8',label:'แสด'},
+    ];
+    const DAYS=[
+      {key:'mon',label:'จันทร์'},
+      {key:'tue',label:'อังคาร'},
+      {key:'wed',label:'พุธ'},
+      {key:'thu',label:'พฤหัส'},
+      {key:'fri',label:'ศุกร์'},
+      {key:'sat',label:'เสาร์'},
+      {key:'sun',label:'อาทิตย์'}
+    ];
+    const EVENT_TYPES=[
+      {key:'exam',label:'สอบ',color:'#E74C3C'},{key:'homework',label:'ส่งงาน',color:'#3498DB'},
+      {key:'holiday',label:'วันหยุด',color:'#27AE60'},{key:'other',label:'อื่นๆ',color:'#9B59B6'},
+    ];
+    const THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    const THAI_DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
+    const LS_S='planner_schedule', LS_P='planner_placements', LS_E='planner_events', LS_ON='planner_onboarded';
+    const TG_START=8, TG_END=20, TG_SLOTS=(TG_END-TG_START)*2, TG_ROW=72, TG_COL=46;
+    /* ── Icons ── */
+    const IC={
+      book:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B85C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
+      schedule:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      calendar:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      plus:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+      trash:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>`,
+      edit:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+      chevL:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+      chevR:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+      info:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C98A2A" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+      clock:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+      close:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      pin:`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-1px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      download:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+      upload:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+      backup:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+      list:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+    };
+    /* ── Helpers ── */
+    const ST_user='69200234';
+    const uk=k=>`${k}_${ST_user}`;
+    function lj(k,fb){try{const r=localStorage.getItem(k);return r?JSON.parse(r):fb;}catch{return fb;}}
+    function sl(k,v){localStorage.setItem(k,JSON.stringify(v));}
+    function ulj(k,fb){return lj(uk(k),fb);}
+    function usl(k,v){sl(uk(k),v);}
+    function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+    function toBE(y){return y+543;}
+    function fmtThai(s){const[y,m,d]=s.split('-').map(Number);return `${d} ${THAI_MONTHS[m-1]} ${toBE(y)}`;}
+    function fmtShort(s){const[y,m,d]=s.split('-').map(Number);return `${d}/${m}/${toBE(y)}`;}
+    function todayStr(){const t=new Date();return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
+    function chx(id){const c=PASTEL_COLORS.find(p=>p.id===id);return c?c.hex:PASTEL_COLORS[0].hex;}
+    function etp(key){return EVENT_TYPES.find(t=>t.key===key)||EVENT_TYPES[3];}
+    function etl(ev){return(ev.type==='other'&&ev.customType)?ev.customType:etp(ev.type).label;}
+    function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+    function si(t){const[h,m]=t.split(':').map(Number);return(h-TG_START)*2+Math.floor(m/30);}
+    function s2t(row){const tot=TG_START*60+row*30;return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;}
+    function m2r(s,e){const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};return Math.max(1,Math.ceil((tm(e)-tm(s))/30));}
+    function bph(s,e){const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};return Math.max(20,(tm(e)-tm(s))/30*TG_ROW-6);}
+    function tthai(t){const[h,m]=t.split(':').map(Number);return `${h}.${String(m).padStart(2,'0')} น.`;}
+    function dl(key){return(DAYS.find(d=>d.key===key)||{label:key}).label;}
+    /* ── Seed ── */
+    (function(){
+      if(localStorage.getItem(uk(LS_S))) return;
+      const sj=[
+        {id:'s1',name:'Programming Fundamental',color:'pastel-2',room:'',code:'11256001',credits:'3(2-3-6)',section:'1',teacher:'',midterm:'อาทิตย์ 23 ส.ค. 2569  13:30-16:30',final:'อังคาร 3 พ.ย. 2569  13:30-16:30'},
+        {id:'s2',name:'Programming Fundamental Lab',color:'pastel-1',room:'',code:'11256001',credits:'3(2-3-6)',section:'11',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+        {id:'s3',name:'Intro to Computer Engineering',color:'pastel-4',room:'',code:'11256006',credits:'3(2-3-6)',section:'1',teacher:'',midterm:'อังคาร 18 ส.ค. 2569  13:30-16:30',final:'อังคาร 27 ต.ค. 2569  13:30-16:30'},
+        {id:'s4',name:'Intro to ComEng Lab',color:'pastel-5',room:'',code:'11256006',credits:'3(2-3-6)',section:'11',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+        {id:'s5',name:'Calculus 1',color:'pastel-6',room:'',code:'11256101',credits:'3(3-0-6)',section:'1',teacher:'',midterm:'จันทร์ 17 ส.ค. 2569  09:30-12:30',final:'จันทร์ 26 ต.ค. 2569  09:30-12:30'},
+        {id:'s6',name:'Engineering Physics',color:'pastel-3',room:'',code:'11256105',credits:'3(2-3-6)',section:'1',teacher:'',midterm:'ศุกร์ 21 ส.ค. 2569  09:30-12:30',final:'ศุกร์ 30 ต.ค. 2569  09:30-12:30'},
+        {id:'s7',name:'Engineering Physics Lab',color:'pastel-1',room:'',code:'11256105',credits:'3(2-3-6)',section:'11',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+        {id:'s8',name:'Engineering Drawing',color:'pastel-6',room:'',code:'11256106',credits:'3(2-3-6)',section:'1',teacher:'',midterm:'เสาร์ 22 ส.ค. 2569  13:30-16:30',final:'จันทร์ 2 พ.ย. 2569  13:30-16:30'},
+        {id:'s9',name:'Engineering Drawing Lab',color:'pastel-4',room:'',code:'11256106',credits:'3(2-3-6)',section:'11',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+        {id:'s10',name:'Digital Citizen',color:'pastel-5',room:'',code:'90641007',credits:'3(3-0-6)',section:'15',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+        {id:'s11',name:'Intro to English Communication',color:'pastel-3',room:'',code:'90641008',credits:'0(0-0-45)',section:'26',teacher:'',midterm:'จัดสอบเอง',final:'จัดสอบเอง'},
+      ];
+      const pl=[
+        {id:'p1',subjectId:'s1',day:'mon',startTime:'13:00',endTime:'15:00'},
+        {id:'p2',subjectId:'s2',day:'thu',startTime:'09:00',endTime:'12:00'},
+        {id:'p3',subjectId:'s3',day:'tue',startTime:'13:00',endTime:'15:00'},
+        {id:'p4',subjectId:'s4',day:'tue',startTime:'15:00',endTime:'18:00'},
+        {id:'p5',subjectId:'s5',day:'tue',startTime:'09:00',endTime:'12:00'},
+        {id:'p6',subjectId:'s6',day:'fri',startTime:'08:00',endTime:'10:00'},
+        {id:'p7',subjectId:'s7',day:'thu',startTime:'09:00',endTime:'12:00'},
+        {id:'p8',subjectId:'s8',day:'fri',startTime:'10:00',endTime:'12:00'},
+        {id:'p9',subjectId:'s9',day:'fri',startTime:'13:00',endTime:'16:00'},
+        {id:'p10',subjectId:'s10',day:'wed',startTime:'13:00',endTime:'16:00'},
+      ];
+      sl(uk(LS_S),sj); sl(uk(LS_P),pl);
+    })();
+    /* ── State ── */
+    const now=new Date();
+    let ST={
+      tab:'schedule',
+      subjects:ulj(LS_S,[]),
+      placements:ulj(LS_P,[]),
+      events:ulj(LS_E,[]),
+      calYear:now.getFullYear(),calMonth:now.getMonth(),
+      selectedDate:null,modal:null,
+      showSubjForm:false,formColor:PASTEL_COLORS[0].id,
+      formEType:'exam',formECustom:'',
+      editSubjId:null,editPlaceId:null,editEvId:null,
+      importData:null,locked:false,
+    };
+    /* ── Render ── */
+    function render(){
+      const app=document.getElementById('app');
+      app.innerHTML=`
+        <div class="notebook"><div class="notebook-cover">
+          ${holes()}
+          <div class="header">
+            <div class="header-left">
+              <div class="header-title">${IC.book} สมุดแพลนเรียน</div>
+              <div class="header-sub">จัดตารางเรียน &amp; ปฏิทินการศึกษา</div>
+            </div>
+            <button class="lock-btn ${ST.locked?'locked':''}" data-action="toggle-lock">
+              ${ST.locked?'🔒 ล็อคอยู่':'🔓 ล็อคตาราง'}
+            </button>
+          </div>
+          ${tabs()}
+          <div class="content">
+            <div class="panel" ${ST.tab!=='schedule'?'hidden':''}>${renderSchedule()}</div>
+            <div class="panel" ${ST.tab!=='calendar'?'hidden':''}>${renderCalendar()}</div>
+            <div class="panel" ${ST.tab!=='backup'?'hidden':''}>${renderBackup()}</div>
+          </div>
+        </div></div>
+        ${ST.modal?renderModal():''}`;
+      bindAll();
+    }
+    function holes(){
+      let h='';
+      for(let i=0;i<10;i++) h+=`<div class="punch-hole"></div>`;
+      return `<div class="punch-holes">${h}</div>`;
+    }
+    function tabs(){
+      return `<div class="tabs">
+        <button class="tab ${ST.tab==='schedule'?'active':''}" data-action="tab" data-val="schedule">${IC.schedule} ตารางเรียน</button>
+        <button class="tab ${ST.tab==='calendar'?'active':''}" data-action="tab" data-val="calendar">${IC.calendar} ปฏิทิน</button>
+        <button class="tab ${ST.tab==='backup'?'active':''}" data-action="tab" data-val="backup">${IC.backup} สำรองข้อมูล</button>
+      </div>`;
+    }
+    /* ── Schedule ── */
+    function renderSchedule(){
+      return `
+        ${ST.locked?`<div class="locked-bar">🔒 โหมดล็อค — กดปุ่ม "ล็อคอยู่" มุมขวาเพื่อปลดล็อค</div>`:''}
+        <div class="sch-layout">
+          ${renderPalette()}
+          <div class="tg-area${ST.locked?' is-locked':''}">
+            ${renderGrid()}
+            ${ST.locked?'':renderDeleteZone()}
+            <p class="tg-hint">${ST.locked?'🔒 ตารางถูกล็อค':'ลากวิชาจากด้านบนมาวางในช่องเวลา · ลากบล็อกเพื่อย้าย · ลากมาช่องลบเพื่อลบ'}</p>
+          </div>
+        </div>
+        ${renderSummary()}`;
+    }
+    function renderDeleteZone(){
+      return `<div class="drop-delete-zone" id="drop-del">
+        <span class="drop-delete-icon">🗑️</span>
+        <span>ลากวิชามาวางที่นี่เพื่อลบออกจากตาราง</span>
+      </div>`;
+    }
+    /* ── Palette ── */
+    function renderPalette(){
+      const has=ST.subjects.length>0;
+      return `<div class="subj-palette${ST.locked?' is-locked':''}">
+        <div class="subj-palette-title">
+          <span>📋 รายวิชา</span>
+          <button class="btn btn-sm btn-primary ${!has?'btn-pulse':''}" data-action="tog-subj">${IC.plus}${ST.showSubjForm?'ซ่อน':'เพิ่ม'}</button>
+        </div>
+        ${ST.showSubjForm?renderSubjForm():''}
+        <div class="subj-list">
+          ${has?ST.subjects.map(s=>subjChip(s)).join(''):'<div class="subj-palette-empty">ยังไม่มีวิชา<br>กด "+ เพิ่ม"</div>'}
+        </div>
+        ${has?'<div class="drag-hint">👇 ลากวิชาไปวางในตารางด้านล่าง</div>':''}
+      </div>`;
+    }
+    function subjChip(s){
+      return `<div class="subj-chip" draggable="true" data-drag-subj="${s.id}" style="background:${chx(s.color)}">
+        <span class="subj-chip-dot" style="background:${chx(s.color)};border:1.5px solid rgba(0,0,0,.15)"></span>
+        <div class="subj-chip-body">
+          <div class="subj-chip-name">${esc(s.name)}</div>
+          ${s.code?`<div class="subj-chip-code">${esc(s.code)}${s.credits?' · '+esc(s.credits):''}</div>`:''}
+        </div>
+        ${s.room?`<span style="font-size:.68rem;opacity:.7;flex-shrink:0">${IC.pin}${esc(s.room)}</span>`:''}
+        <span class="subj-chip-actions">
+          <button class="btn-icon" data-action="edit-subj" data-id="${s.id}">${IC.edit}</button>
+          <button class="btn-icon" data-action="del-subj" data-id="${s.id}">${IC.trash}</button>
+        </span>
+      </div>`;
+    }
+    function renderSubjForm(){
+      const s=ST.editSubjId?ST.subjects.find(x=>x.id===ST.editSubjId):null;
+      const v=f=>s?esc(s[f]||''):'';
+      return `<div class="subj-add-form">
+        <div class="subj-add-title">${s?'✏️ แก้ไขวิชา':'➕ เพิ่มวิชาใหม่'}</div>
+        <div class="form-row">
+          <div class="form-group full"><label>ชื่อวิชา *</label><input id="sf-name" type="text" placeholder="เช่น คณิตศาสตร์" value="${v('name')}"></div>
+          <div class="form-group"><label>รหัสวิชา</label><input id="sf-code" type="text" placeholder="11256001" value="${v('code')}"></div>
+          <div class="form-group"><label>หน่วยกิต</label><input id="sf-credits" type="text" placeholder="3(2-3-6)" value="${v('credits')}"></div>
+          <div class="form-group"><label>กลุ่มเรียน</label><input id="sf-section" type="text" placeholder="1" value="${v('section')}"></div>
+          <div class="form-group"><label>ห้องเรียน</label><input id="sf-room" type="text" placeholder="B213" value="${v('room')}"></div>
+          <div class="form-group"><label>ติก</label><input id="sf-enrolled" type="text" placeholder="51" value="${v('enrolled')}"></div>
+          <div class="form-group full"><label>อาจารย์ผู้สอน</label><input id="sf-teacher" type="text" placeholder="อ.ชื่อ" value="${v('teacher')}"></div>
+          <div class="form-group full"><label>วัน-เวลาสอบ Midterm</label><input id="sf-midterm" type="text" placeholder="อาทิตย์ 23 ส.ค. 13:30-16:30" value="${v('midterm')}"></div>
+          <div class="form-group full"><label>วัน-เวลาสอบ Final</label><input id="sf-final" type="text" placeholder="อังคาร 3 พ.ย. 13:30-16:30" value="${v('final')}"></div>
+          <div class="form-group full"><label>สี</label>
+            <div class="color-picker">${PASTEL_COLORS.map(c=>`<div class="color-swatch ${ST.formColor===c.id?'selected':''}" style="background:${c.hex}" data-action="pick-color" data-color="${c.id}" title="${c.label}"></div>`).join('')}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-sm" data-action="cancel-subj">ยกเลิก</button>
+          <button class="btn btn-sm btn-primary" data-action="save-subj">${s?'บันทึก':'เพิ่มวิชา'}</button>
+        </div>
+      </div>`;
+    }
+    /* ── Time Grid (horizontal: rows=days, cols=time) ── */
+    function renderGrid(){
+      const byDay={};
+      for(const d of DAYS) byDay[d.key]=[];
+      for(const p of ST.placements){
+        const subj=ST.subjects.find(s=>s.id===p.subjectId);
+        if(!subj||!byDay[p.day]) continue;
+        byDay[p.day].push({...p,subj,colStart:si(p.startTime),colSpan:m2r(p.startTime,p.endTime)});
+      }
+      // merge same-subject adjacent blocks per day
+      const merged={};
+      for(const d of DAYS){
+        const sorted=[...byDay[d.key]].sort((a,b)=>a.colStart-b.colStart);
+        const out=[];
+        for(const blk of sorted){
+          const prev=out[out.length-1];
+          if(prev&&prev.subj.id===blk.subj.id&&prev.colStart+prev.colSpan===blk.colStart){
+            prev.colSpan+=blk.colSpan; prev.endTime=blk.endTime; prev._ids.push(blk.id);
+          } else {
+            out.push({...blk,_ids:[blk.id]});
+          }
+        }
+        merged[d.key]=out;
+      }
+
+      // Header row: corner + time labels
+      let hdr=`<tr><th class="tg-corner" style="width:68px;min-width:68px"></th>`;
+      for(let col=0;col<TG_SLOTS;col++){
+        const isHour=col%2===0;
+        const tl=isHour?tthai(s2t(col)):'';
+        hdr+=`<th class="tg-time-hdr${isHour?' tg-hour':''}" style="min-width:${TG_COL}px;width:${TG_COL}px;max-width:${TG_COL}px">${tl}</th>`;
+      }
+      hdr+=`</tr>`;
+
+      // Body: one row per day
+      let body='';
+      for(const d of DAYS){
+        const placements=merged[d.key];
+        // build occupancy map
+        const occ=new Array(TG_SLOTS).fill(false);
+        placements.forEach(p=>{for(let c=p.colStart;c<p.colStart+p.colSpan;c++) occ[c]=true;});
+
+        let cells=`<th class="tg-day-lbl">${d.label}</th>`;
+        let col=0;
+        while(col<TG_SLOTS){
+          const p=placements.find(x=>x.colStart===col);
+          if(p){
+            const bg=chx(p.subj.color);
+            const isMg=p._ids.length>1;
+            const w=p.colSpan*TG_COL-6;
+            cells+=`<td class="tg-slot${col%2===0?' tg-hour-start':''}" colspan="${p.colSpan}"
+                style="position:relative;padding:0;vertical-align:middle"
+                data-drop-day="${d.key}" data-drop-col="${col}">
+              <div class="tg-block${isMg?' tg-block-merged':''}" style="background:${bg};width:${w}px;right:3px"
+                   draggable="true" data-drag-place="${p.id}" data-action="edit-place" data-id="${p.id}">
+                <div class="tg-block-name">${esc(p.subj.name)}${isMg?`<span class="tg-merged-badge">ต่อ</span>`:''}</div>
+                <div class="tg-block-time">${tthai(p.startTime)}–${tthai(p.endTime)}</div>
+                ${p.subj.room?`<div class="tg-block-room">${IC.pin}${esc(p.subj.room)}</div>`:''}
+                <button class="tg-block-del" data-action="del-place" data-id="${p.id}">${IC.trash}</button>
+              </div>
+            </td>`;
+            col+=p.colSpan;
+          } else {
+            cells+=`<td class="tg-slot${col%2===0?' tg-hour-start':''}"
+                data-drop-day="${d.key}" data-drop-col="${col}"
+                style="min-width:${TG_COL}px">
+              <span class="tg-slot-inner">${IC.plus}</span>
+            </td>`;
+            col++;
+          }
+        }
+        body+=`<tr style="height:${TG_ROW}px">${cells}</tr>`;
+      }
+      return `<div class="tg-wrap"><table class="tg-table"><thead>${hdr}</thead><tbody>${body}</tbody></table></div>`;
+    }
+    /* ── Summary ── */
+    function renderSummary(){
+      if(!ST.placements.length) return '';
+      const grouped={};
+      for(const p of ST.placements){if(!grouped[p.subjectId]) grouped[p.subjectId]=[];grouped[p.subjectId].push(p);}
+      const tm=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const totalH=ST.placements.reduce((a,p)=>a+(tm(p.endTime)-tm(p.startTime))/60,0);
+      const rows=Object.entries(grouped).map(([sid,g])=>{
+        const subj=ST.subjects.find(s=>s.id===sid); if(!subj) return '';
+        const hrs=g.reduce((a,p)=>a+(tm(p.endTime)-tm(p.startTime))/60,0);
+        const badges=g.map(p=>`<span class="sum-badge">${dl(p.day)} ${tthai(p.startTime)}–${tthai(p.endTime)}</span>`).join('');
+        return `<tr>
+          <td><span class="sum-dot" style="background:${chx(subj.color)}"></span><strong>${esc(subj.name)}</strong>${subj.code?`<br><span style="font-size:.72rem;color:var(--ink-muted)">${esc(subj.code)}</span>`:''}</td>
+          <td>${subj.credits?esc(subj.credits):'—'}</td>
+          <td>${subj.section?esc(subj.section):'—'}</td>
+          <td>${subj.room?esc(subj.room):'—'}</td>
+          <td><div style="display:flex;flex-wrap:wrap;gap:3px">${badges}</div></td>
+          <td style="text-align:right;font-family:var(--font-mono);white-space:nowrap"><strong>${hrs%1===0?hrs:hrs.toFixed(1)}</strong> ชม.</td>
+        </tr>`;
+      }).join('');
+      return `<div class="summary-section">
+        <div class="summary-title">${IC.list} สรุปตารางเรียน</div>
+        <div class="summary-stats">
+          <div class="stat-chip">${IC.schedule} <strong>${ST.subjects.length}</strong> วิชา</div>
+          <div class="stat-chip">${IC.clock} รวม <strong>${totalH%1===0?totalH:totalH.toFixed(1)}</strong> ชม./สัปดาห์</div>
+          <div class="stat-chip">📌 <strong>${ST.placements.length}</strong> คาบ/สัปดาห์</div>
+        </div>
+        <div class="summary-table-wrap">
+          <table class="summary-table">
+            <thead><tr><th>วิชา</th><th>หน่วยกิต</th><th>กลุ่ม</th><th>ห้อง</th><th>วัน/เวลา</th><th style="text-align:right">ชม./สัปดาห์</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+    /* ── Calendar ── */
+    function renderCalendar(){
+      const noEv=!ST.events.length;
+      return `<div class="calendar-layout">
+        <div>
+          ${calGrid()}
+          ${noEv?'<div class="cal-empty-hint">👆 คลิกวันที่เพื่อเพิ่มกิจกรรม เช่น วันสอบ ส่งงาน วันหยุด</div>':''}
+          <div class="legend">${EVENT_TYPES.map(t=>`<span class="legend-item"><span class="legend-dot" style="background:${t.color}"></span>${t.label}</span>`).join('')}</div>
+        </div>
+        ${upcoming()}
+      </div>`;
+    }
+    function calGrid(){
+      const{calYear:cy,calMonth:cm}=ST;
+      const first=new Date(cy,cm,1),last=new Date(cy,cm+1,0);
+      const sdow=first.getDay(),tot=last.getDate(),prevLast=new Date(cy,cm,0).getDate();
+      const today=todayStr();
+      let cells='';
+      for(let i=sdow-1;i>=0;i--){const d=prevLast-i,pm=cm===0?11:cm-1,py=cm===0?cy-1:cy;cells+=calDay(d,`${py}-${String(pm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,true,today);}
+      for(let d=1;d<=tot;d++) cells+=calDay(d,`${cy}-${String(cm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,false,today);
+      const rem=(sdow+tot)%7===0?0:7-(sdow+tot)%7;
+      for(let d=1;d<=rem;d++){const nm=cm===11?0:cm+1,ny=cm===11?cy+1:cy;cells+=calDay(d,`${ny}-${String(nm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,true,today);}
+      return `<div class="calendar-header">
+        <button class="btn-icon" data-action="cal-prev">${IC.chevL}</button>
+        <div class="calendar-title">${THAI_MONTHS[cm]} ${toBE(cy)}</div>
+        <button class="btn-icon" data-action="cal-next">${IC.chevR}</button>
+      </div>
+      <div class="cal-grid">
+        ${THAI_DOW.map((d,i)=>`<div class="cal-dow${i===0||i===6?' weekend':''}">${d}</div>`).join('')}
+        ${cells}
+      </div>`;
+    }
+    function calDay(dayNum,dateStr,other,today){
+      const evs=ST.events.filter(e=>e.date===dateStr);
+      const types=[...new Set(evs.map(e=>e.type))];
+      const isT=dateStr===today,isSel=dateStr===ST.selectedDate;
+      return `<div class="cal-day${other?' other-month':''}${isT?' today':''}${isSel?' selected':''}" data-action="sel-date" data-date="${dateStr}">
+        <div class="cal-day-num">${dayNum}</div>
+        <div class="cal-dots">${types.map(t=>`<span class="cal-dot" style="background:${etp(t).color}"></span>`).join('')}</div>
+      </div>`;
+    }
+    function upcoming(){
+      const today=todayStr();
+      const up=ST.events.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+      return `<div class="upcoming">
+        <div class="upcoming-title">${IC.clock} กิจกรรมที่จะถึง</div>
+        <div class="upcoming-list">
+          ${up.length?up.slice(0,20).map(e=>{
+            const et=etp(e.type);
+            return `<div class="upcoming-item" style="border-color:${et.color}">
+              <div class="upcoming-item-name">${esc(e.name)}</div>
+              <div class="upcoming-item-date">${fmtShort(e.date)}</div>
+              <div style="font-size:.68rem;color:var(--ink-muted)">${esc(etl(e))}</div>
+            </div>`;
+          }).join(''):`<div class="upcoming-empty"><div style="font-size:1.6rem;margin-bottom:7px">📅</div>ยังไม่มีกิจกรรม</div>`}
+        </div>
+      </div>`;
+    }
+    /* ── Modal ── */
+    function renderModal(){
+      if(ST.modal==='day') return dayModal();
+      if(ST.modal==='place') return placeModal();
+      if(ST.modal==='import') return importModal();
+      return '';
+    }
+    function dayModal(){
+      const date=ST.selectedDate;
+      const evs=ST.events.filter(e=>e.date===date);
+      const editing=ST.editEvId?ST.events.find(e=>e.id===ST.editEvId):null;
+      const otherFld=t=>t!=='other'?'':`<div class="form-group full"><label>ระบุประเภท</label><input id="ef-custom" type="text" value="${esc(editing?.customType||ST.formECustom||'')}" placeholder="เช่น นัดหมอ"></div>`;
+      const editForm=editing?`
+        <div class="add-form-title">${IC.edit} แก้ไขกิจกรรม</div>
+        <div class="form-row">
+          <div class="form-group full"><label>ชื่อ</label><input id="ef-name" type="text" value="${esc(editing.name)}"></div>
+          <div class="form-group full"><label>ประเภท</label><select id="ef-type">${EVENT_TYPES.map(t=>`<option value="${t.key}"${(ST.formEType||editing.type)===t.key?' selected':''}>${t.label}</option>`).join('')}</select></div>
+          ${otherFld(ST.formEType||editing.type)}
+        </div>
+        <div class="modal-actions"><button class="btn" data-action="cancel-edit-ev">ยกเลิก</button><button class="btn btn-primary" data-action="save-ev">บันทึก</button></div>`:`
+        <div class="add-form-title">เพิ่มกิจกรรม</div>
+        <div class="form-row">
+          <div class="form-group full"><label>ชื่อ</label><input id="ef-name" type="text" placeholder="เช่น สอบกลางภาค"></div>
+          <div class="form-group full"><label>ประเภท</label><select id="ef-type">${EVENT_TYPES.map(t=>`<option value="${t.key}"${ST.formEType===t.key?' selected':''}>${t.label}</option>`).join('')}</select></div>
+          ${otherFld(ST.formEType)}
+        </div>
+        <div class="modal-actions"><button class="btn" data-action="close-modal">ปิด</button><button class="btn btn-primary" data-action="add-ev">เพิ่มกิจกรรม</button></div>`;
+      return `<div class="modal-overlay" data-action="close-modal"><div class="modal" data-stop>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="modal-title">${fmtThai(date)}</div>
+          <button class="btn-icon" data-action="close-modal">${IC.close}</button>
+        </div>
+        ${evs.length?`<div class="event-list-modal">${evs.map(e=>{const et=etp(e.type);return `<div class="event-item-row" style="border-color:${et.color}" data-action="edit-ev" data-id="${e.id}"><div class="event-item-info"><div class="event-item-name">${esc(e.name)}<span class="type-badge" style="background:${et.color}">${esc(etl(e))}</span></div></div><button class="btn btn-danger" data-action="del-ev" data-id="${e.id}" data-stop>${IC.trash}</button></div>`;}).join('')}</div>`:'<p style="font-size:.83rem;color:var(--ink-muted);margin-bottom:11px">ยังไม่มีกิจกรรม</p>'}
+        ${editForm}
+      </div></div>`;
+    }
+    function placeModal(){
+      const p=ST.placements.find(x=>x.id===ST.editPlaceId); if(!p) return '';
+      const subj=ST.subjects.find(s=>s.id===p.subjectId); if(!subj) return '';
+      return `<div class="modal-overlay" data-action="close-modal"><div class="modal" data-stop>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="modal-title">${IC.edit} ${esc(subj.name)}</div>
+          <button class="btn-icon" data-action="close-modal">${IC.close}</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>วัน</label><select id="pm-day">${DAYS.map(d=>`<option value="${d.key}"${p.day===d.key?' selected':''}>${d.label}</option>`).join('')}</select></div>
+          <div class="form-group"><label>เวลาเริ่ม</label><input id="pm-start" type="time" value="${p.startTime}"></div>
+          <div class="form-group"><label>เวลาเลิก</label><input id="pm-end" type="time" value="${p.endTime}"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-danger" data-action="del-place" data-id="${p.id}">${IC.trash} ลบ</button>
+          <button class="btn" data-action="close-modal">ยกเลิก</button>
+          <button class="btn btn-primary" data-action="save-place">บันทึก</button>
+        </div>
+      </div></div>`;
+    }
+    function importModal(){
+      const data=ST.importData; if(!data) return '';
+      return `<div class="modal-overlay" data-action="cancel-import"><div class="modal" data-stop>
+        <div class="modal-title">นำเข้าข้อมูลสำรอง</div>
+        <p style="font-size:.86rem;color:var(--ink-muted);line-height:1.6;margin-bottom:14px">พบ <strong>${(data.subjects||data.schedule||[]).length}</strong> วิชา และ <strong>${(data.events||[]).length}</strong> กิจกรรม</p>
+        <div class="modal-actions">
+          <button class="btn" data-action="cancel-import">ยกเลิก</button>
+          <button class="btn" data-action="import-merge">รวมข้อมูล</button>
+          <button class="btn btn-primary" data-action="import-ow">แทนที่ทั้งหมด</button>
+        </div>
+      </div></div>`;
+    }
+    /* ── Backup ── */
+    function renderBackup(){
+      return `<div class="backup-panel">
+        <p>สำรองข้อมูลตารางเรียนและปฏิทินเป็นไฟล์ .json</p>
+        <div class="backup-actions">
+          <div class="backup-card">
+            <div class="backup-card-title">${IC.download} ดาวน์โหลดข้อมูลสำรอง</div>
+            <div class="backup-card-desc">${ST.subjects.length} วิชา · ${ST.placements.length} คาบ · ${ST.events.length} กิจกรรม</div>
+            <button class="btn btn-primary" data-action="export">${IC.download} ดาวน์โหลด</button>
+          </div>
+          <div class="backup-card">
+            <div class="backup-card-title">${IC.upload} นำเข้าข้อมูลสำรอง</div>
+            <div class="backup-card-desc">เลือกไฟล์ .json ที่เคย export ไว้</div>
+            <button class="btn" data-action="trigger-import">${IC.upload} เลือกไฟล์</button>
+            <input type="file" id="import-file" class="hidden-input" accept=".json,application/json">
+          </div>
+        </div>
+      </div>`;
+    }
+    /* ── Drag & Drop ── */
+    let _dd=null, _dropped=false;
+    function bindDrag(){
+      if(ST.locked) return;
+      document.querySelectorAll('[data-drag-subj]').forEach(el=>{
+        el.addEventListener('dragstart',e=>{_dd={type:'subj',id:el.dataset.dragSubj};_dropped=false;e.dataTransfer.effectAllowed='copy';el.classList.add('dragging');});
+        el.addEventListener('dragend',()=>{el.classList.remove('dragging');_dd=null;});
+      });
+      document.querySelectorAll('[data-drag-place]').forEach(el=>{
+        el.addEventListener('dragstart',e=>{_dd={type:'place',id:el.dataset.dragPlace};_dropped=false;e.dataTransfer.effectAllowed='move';el.classList.add('dragging');e.stopPropagation();});
+        el.addEventListener('dragend',()=>{
+          el.classList.remove('dragging');
+          if(!_dropped&&_dd&&_dd.type==='place'){
+            ST.placements=ST.placements.filter(p=>p.id!==_dd.id);
+            usl(LS_P,ST.placements); _dd=null; render(); return;
+          }
+          _dd=null;
+        });
+      });
+      document.querySelectorAll('[data-drop-day]').forEach(td=>{
+        td.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect=_dd?.type==='place'?'move':'copy';document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));td.classList.add('drag-over');});
+        td.addEventListener('dragleave',()=>td.classList.remove('drag-over'));
+        td.addEventListener('drop',e=>{
+          e.preventDefault();document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));
+          if(!_dd) return;
+          _dropped=true;
+          const day=td.dataset.dropDay;
+          const col=parseInt(td.dataset.dropCol||td.dataset.dropRow||'0',10);
+          if(_dd.type==='subj') dropSubj(_dd.id,day,col);
+          else movPlace(_dd.id,day,col);
+          _dd=null;
+        });
+      });
+      const dz=document.getElementById('drop-del');
+      if(dz){
+        dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over-delete');});
+        dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over-delete'));
+        dz.addEventListener('drop',e=>{
+          e.preventDefault();dz.classList.remove('drag-over-delete');
+          if(_dd&&_dd.type==='place'){_dropped=true;ST.placements=ST.placements.filter(p=>p.id!==_dd.id);usl(LS_P,ST.placements);_dd=null;render();}
+        });
+      }
+    }
+    function dropSubj(sid,day,row){
+      const end=Math.min(row+2,TG_SLOTS);
+      ST.placements.push({id:uid(),subjectId:sid,day,startTime:s2t(row),endTime:s2t(end)});
+      usl(LS_P,ST.placements); render();
+    }
+    function movPlace(pid,day,row){
+      const p=ST.placements.find(x=>x.id===pid); if(!p) return;
+      const dur=m2r(p.startTime,p.endTime);
+      p.day=day; p.startTime=s2t(row); p.endTime=s2t(Math.min(row+dur,TG_SLOTS));
+      usl(LS_P,ST.placements); render();
+    }
+    /* ── Event Binding ── */
+    function bindAll(){
+      const app=document.getElementById('app');
+      app.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',handleClick));
+      app.querySelectorAll('[data-stop]').forEach(el=>el.addEventListener('click',e=>e.stopPropagation()));
+      app.querySelectorAll('[data-drag-place]').forEach(el=>el.addEventListener('click',e=>e.stopPropagation()));
+      const imp=document.getElementById('import-file');
+      if(imp) imp.addEventListener('change',importFile);
+      const eft=document.getElementById('ef-type');
+      if(eft) eft.addEventListener('change',function(){
+        const c=document.getElementById('ef-custom');
+        if(c) ST.formECustom=c.value.trim();
+        ST.formEType=this.value; if(this.value!=='other') ST.formECustom=''; render();
+      });
+      bindDrag();
+    }
+    function handleClick(e){
+      const el=e.target.closest('[data-action]'); if(!el) return;
+      if(el.dataset.stop) e.stopPropagation();
+      const a=el.dataset.action;
+      switch(a){
+        case 'tab': ST.tab=el.dataset.val; render(); break;
+        case 'toggle-lock': ST.locked=!ST.locked; render(); break;
+        case 'tog-subj': ST.showSubjForm=!ST.showSubjForm; if(ST.showSubjForm){ST.formColor=PASTEL_COLORS[0].id;ST.editSubjId=null;} render(); setTimeout(()=>document.getElementById('sf-name')?.focus(),60); break;
+        case 'cancel-subj': ST.showSubjForm=false;ST.editSubjId=null;render();break;
+        case 'pick-color': ST.formColor=el.dataset.color;render();break;
+        case 'save-subj': saveSubj();break;
+        case 'edit-subj':{const s=ST.subjects.find(x=>x.id===el.dataset.id);if(!s)break;ST.editSubjId=s.id;ST.formColor=s.color||PASTEL_COLORS[0].id;ST.showSubjForm=true;render();setTimeout(()=>document.getElementById('sf-name')?.focus(),60);break;}
+        case 'del-subj': delSubj(el.dataset.id);break;
+        case 'edit-place': ST.editPlaceId=el.dataset.id;ST.modal='place';render();break;
+        case 'save-place': savePlace();break;
+        case 'del-place': delPlace(el.dataset.id);break;
+        case 'cal-prev': ST.calMonth--;if(ST.calMonth<0){ST.calMonth=11;ST.calYear--;} render();break;
+        case 'cal-next': ST.calMonth++;if(ST.calMonth>11){ST.calMonth=0;ST.calYear++;} render();break;
+        case 'sel-date': ST.selectedDate=el.dataset.date;ST.modal='day';ST.formEType='exam';ST.formECustom='';ST.editEvId=null;render();break;
+        case 'close-modal': ST.modal=null;ST.editPlaceId=null;ST.editEvId=null;render();break;
+        case 'add-ev': addEv();break;
+        case 'edit-ev':{const ev=ST.events.find(x=>x.id===el.dataset.id);ST.editEvId=el.dataset.id;if(ev){ST.formEType=ev.type;ST.formECustom=ev.customType||'';}render();break;}
+        case 'cancel-edit-ev': ST.editEvId=null;render();break;
+        case 'save-ev': saveEv();break;
+        case 'del-ev': delEv(el.dataset.id);break;
+        case 'export': exportBk();break;
+        case 'trigger-import': document.getElementById('import-file')?.click();break;
+        case 'import-merge': applyImport('merge');break;
+        case 'import-ow': applyImport('ow');break;
+        case 'cancel-import': ST.modal=null;ST.importData=null;render();break;
+      }
+    }
+    /* ── CRUD ── */
+    function saveSubj(){
+      const g=id=>document.getElementById(id)?.value.trim()||'';
+      const name=g('sf-name'); if(!name){alert('กรุณากรอกชื่อวิชา');return;}
+      const data={name,code:g('sf-code'),credits:g('sf-credits'),section:g('sf-section'),room:g('sf-room'),enrolled:g('sf-enrolled'),teacher:g('sf-teacher'),midterm:g('sf-midterm'),final:g('sf-final'),color:ST.formColor};
+      if(ST.editSubjId){const s=ST.subjects.find(x=>x.id===ST.editSubjId);if(s)Object.assign(s,data);}
+      else ST.subjects.push({id:uid(),...data});
+      usl(LS_S,ST.subjects); ST.showSubjForm=false;ST.editSubjId=null;render();
+    }
+    function delSubj(id){
+      if(!confirm('ลบวิชานี้? คาบเรียนที่วางไว้จะถูกลบด้วย'))return;
+      ST.subjects=ST.subjects.filter(s=>s.id!==id);
+      ST.placements=ST.placements.filter(p=>p.subjectId!==id);
+      usl(LS_S,ST.subjects);usl(LS_P,ST.placements);render();
+    }
+    function savePlace(){
+      const p=ST.placements.find(x=>x.id===ST.editPlaceId);if(!p)return;
+      const day=document.getElementById('pm-day')?.value;
+      const start=document.getElementById('pm-start')?.value;
+      const end=document.getElementById('pm-end')?.value;
+      if(!day||!start||!end){alert('กรุณากรอกข้อมูลให้ครบ');return;}
+      if(start>=end){alert('เวลาเริ่มต้องน้อยกว่าเวลาเลิก');return;}
+      p.day=day;p.startTime=start;p.endTime=end;
+      usl(LS_P,ST.placements);ST.modal=null;ST.editPlaceId=null;render();
+    }
+    function delPlace(id){
+      if(!confirm('ลบคาบเรียนนี้?'))return;
+      ST.placements=ST.placements.filter(p=>p.id!==id);
+      usl(LS_P,ST.placements);ST.modal=null;render();
+    }
+    function readEvForm(){
+      const name=document.getElementById('ef-name')?.value.trim();
+      const type=document.getElementById('ef-type')?.value;
+      const custom=type==='other'?document.getElementById('ef-custom')?.value.trim():'';
+      if(!name){alert('กรุณากรอกชื่อกิจกรรม');return null;}
+      if(type==='other'&&!custom){alert('กรุณาระบุประเภท');return null;}
+      return{name,type,customType:type==='other'?custom:''};
+    }
+    function addEv(){const f=readEvForm();if(!f)return;ST.events.push({id:uid(),name:f.name,date:ST.selectedDate,type:f.type,customType:f.customType});usl(LS_E,ST.events);ST.formEType=f.type;render();}
+    function saveEv(){const ev=ST.events.find(x=>x.id===ST.editEvId);if(!ev)return;const f=readEvForm();if(!f)return;ev.name=f.name;ev.type=f.type;ev.customType=f.customType;usl(LS_E,ST.events);ST.editEvId=null;render();}
+    function delEv(id){if(!confirm('ลบกิจกรรมนี้?'))return;ST.events=ST.events.filter(e=>e.id!==id);usl(LS_E,ST.events);if(ST.editEvId===id)ST.editEvId=null;render();}
+    /* ── Backup ── */
+    function exportBk(){
+      const data={version:2,exportedAt:new Date().toISOString(),app:'สมุดแพลนเรียน',studentId:ST_user,subjects:ST.subjects,placements:ST.placements,events:ST.events};
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=`planner-${ST_user}-${todayStr()}.json`;a.click();URL.revokeObjectURL(url);
+    }
+    function importFile(e){
+      const file=e.target.files?.[0];e.target.value='';if(!file)return;
+      const reader=new FileReader();
+      reader.onload=function(){try{const data=JSON.parse(reader.result);if(!Array.isArray(data.events)){alert('ไฟล์ไม่ถูกต้อง');return;}ST.importData=data;ST.modal='import';render();}catch{alert('ไม่สามารถอ่านไฟล์ JSON ได้');}};
+      reader.readAsText(file);
+    }
+    function mergeById(ex,im){const map=new Map(ex.map(x=>[x.id,x]));im.forEach(x=>{if(!x)return;const it={...x};if(!it.id)it.id=uid();map.set(it.id,it);});return Array.from(map.values());}
+    function applyImport(mode){
+      const data=ST.importData;if(!data)return;
+      const ns=data.subjects||data.schedule||[],np=data.placements||[],ne=data.events||[];
+      if(mode==='ow'){if(!confirm('แทนที่ข้อมูลเดิมทั้งหมด?'))return;ST.subjects=ns;ST.placements=np;ST.events=ne;}
+      else{ST.subjects=mergeById(ST.subjects,ns);ST.placements=mergeById(ST.placements,np);ST.events=mergeById(ST.events,ne);}
+      usl(LS_S,ST.subjects);usl(LS_P,ST.placements);usl(LS_E,ST.events);
+      ST.modal=null;ST.importData=null;alert('นำเข้าข้อมูลสำเร็จ');render();
+    }
+    /* ── Init ── */
+    render();
+  })();
+  </script>
+</body>
+</html>
